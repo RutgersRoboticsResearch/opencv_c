@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project( color_detection.cpp )
+find_package( OpenCV REQUIRED )
+add_executable( color_detection color_detection.cpp )
+target_link_libraries( color_detection  ${OpenCV_LIBS} )

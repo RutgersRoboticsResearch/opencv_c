@@ -1,0 +1,1 @@
+/home/earl/Desktop/openCVTut/CMakeFiles/color_detection.dir
