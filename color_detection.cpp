@@ -13,19 +13,19 @@
 using namespace cv;
 using namespace std;
 
-
+int dev = 1;
 int H_MIN = 0;
 int H_MAX = 256;
-int S_MIN = 0;
-int S_MAX = 256;
-int V_MIN = 0;
-int V_MAX = 256;
+int S_MIN = 106;
+int S_MAX = 239;
+int V_MIN = 94;
+int V_MAX = 227;
 
 
 const int FRAME_WIDTH = 640;
 const int FRAME_HEIGHT = 480;
 
-const int MAX_NUM_OBJECTS=50;
+const int MAX_NUM_OBJECTS= 50;
 
 const int MIN_OBJECT_AREA = 20*20;
 const int MAX_OBJECT_AREA = FRAME_HEIGHT*FRAME_WIDTH/1.5;
@@ -35,7 +35,7 @@ const string windowName = "Original Image";
 const string windowName1 = "HSV Image";
 const string windowName2 = "Thresholded Image";
 const string windowName3 = "After Morphological Operations";
-const string trackbarWindowName = "Trackbars";
+//const string trackbarWindowName = "Trackbars";
 
 void on_trackbar( int, void* )
 {//This function gets called whenever a
@@ -43,8 +43,6 @@ void on_trackbar( int, void* )
 }
 
 string intToString(int number){
-
-
   std::stringstream ss;
   ss << number;
   return ss.str();
@@ -79,12 +77,10 @@ void createTrackbars(){
 
 void drawObject(int x, int y,Mat &frame){
 
-  //use some of the openCV drawing functions to draw crosshairs
-  //on your tracked image!
 
-    //UPDATE:JUNE 18TH, 2013
-    //added 'if' and 'else' statements to prevent
-    //memory errors from writing off the screen (ie. (-25,-25) is not within the window!)
+  //added 'if' and 'else' statements to prevent
+  //memory errors from writing off the screen (ie. (-25,-25) is not within the window!)
+  
   circle(frame,Point(x,y),20,Scalar(0,255,0),2);
   if(y-25>0)
     line(frame,Point(x,y),Point(x,y-25),Scalar(0,255,0),2);
@@ -138,130 +134,134 @@ namespace {
   }
 }
 
-  void trackFilteredObject(int &x, int &y, Mat threshold, Mat &cameraFeed) {
+void trackFilteredObject(int &x, int &y, Mat threshold, Mat &cameraFeed) {
 
-    Mat temp;
-    threshold.copyTo(temp);
+  Mat temp;
+  threshold.copyTo(temp);
 
 //these two vectors needed for output of findContours
-    vector< vector<Point> > contours;
-    vector<Vec4i> hierarchy;
+  vector< vector<Point> > contours;
+  vector<Vec4i> hierarchy;
 
 //find contours of filtered image using openCV findContours function
-    findContours(temp,contours,hierarchy,CV_RETR_CCOMP,CV_CHAIN_APPROX_SIMPLE );
+  findContours(temp,contours,hierarchy,CV_RETR_CCOMP,CV_CHAIN_APPROX_SIMPLE );
 
 //use moments method to find our filtered object
-    double refArea = 0;
-    bool objectFound = false;
-    if (hierarchy.size() > 0) {
+  double refArea = 0;
+  bool objectFound = false;
+  if (hierarchy.size() > 0) {
 
-      int numObjects = hierarchy.size();
+    int numObjects = hierarchy.size();
 
-      //if number of objects greater than MAX_NUM_OBJECTS we have a noisy filter
-      if(numObjects<MAX_NUM_OBJECTS){
-        for (int index = 0; index >= 0; index = hierarchy[index][0]) {
+    //if number of objects greater than MAX_NUM_OBJECTS we have a noisy filter
+    if(numObjects<MAX_NUM_OBJECTS){
+      for (int index = 0; index >= 0; index = hierarchy[index][0]) {
 
-          Moments moment = moments((cv::Mat)contours[index]);
-          double area = moment.m00;
+        Moments moment = moments((cv::Mat)contours[index]);
+        double area = moment.m00;
 
-      //if the area is less than 20 px by 20px then it is probably just noise
-      //if the area is the same as the 3/2 of the image size, probably just a bad filter
-      //we only want the object with the largest area so we safe a reference area each
-      //iteration and compare it to the area in the next iteration.
-          if(area>MIN_OBJECT_AREA && area<MAX_OBJECT_AREA && area>refArea){
-            x = moment.m10/area;
-            y = moment.m01/area;
-            objectFound = true;
-            refArea = area;
-          }else objectFound = false;
-        }
+    //if the area is less than 20 px by 20px then it is probably just noise
+    //if the area is the same as the 3/2 of the image size, probably just a bad filter
+    //we only want the object with the largest area so we safe a reference area each
+    //iteration and compare it to the area in the next iteration.
+        if(area>MIN_OBJECT_AREA && area<MAX_OBJECT_AREA && area>refArea){
+          x = moment.m10/area;
+          y = moment.m01/area;
+          objectFound = true;
+          refArea = area;
+        }else objectFound = false;
+      }
 
-      //let user know you found an object
-        if(objectFound ==true){
+    //let user know you found an object
+      if(objectFound ==true){
 
-          putText(cameraFeed,"Tracking Object",Point(0,50),2,1,Scalar(0,255,0),2);
+        putText(cameraFeed,"Tracking Object",Point(0,50),2,1,Scalar(0,255,0),2);
 
-        //draw object location on screen
-          drawObject(x,y,cameraFeed);}
-        }else{ 
+      //draw object location on screen
+        drawObject(x,y,cameraFeed);}
+      }else{ 
 
-          putText(cameraFeed,"TOO MUCH NOISE! ADJUST FILTER",Point(0,50),1,2,Scalar(0,0,255),2);
-        }
+        putText(cameraFeed,"TOO MUCH NOISE! ADJUST FILTER",Point(0,50),1,2,Scalar(0,0,255),2);
       }
     }
+  }
 
-    int main(int ac, char** av) {
+int main(int ac, char** av) {
 
   //some boolean variables for different functionality within this
   //program
-      bool trackObjects = true;
-      bool useMorphOps = true;
+  bool trackObjects = true;
+  bool useMorphOps = true;
 
   //Matrix to store each frame of the webcam feed
-      Mat cameraFeed;
+  Mat cameraFeed;
 
   //matrix storage for HSV image
-      Mat HSV;
+  Mat HSV;
 
   //matrix storage for binary threshold image
-      Mat threshold;
+  Mat threshold;
 
   //x and y values for the location of the object
-      int x=0, y=0;
+  int x=0, y=0;
 
   //create slider bars for HSV filtering
-      createTrackbars();
+  if(dev ==1){
+    createTrackbars();
+  }
+  //video capture object to acquire webcam feed
+  VideoCapture capture;
 
-      //video capture object to acquire webcam feed
-      VideoCapture capture;
+  //open capture object at location zero (default location for webcam)
+  capture.open(0);
 
-      //open capture object at location zero (default location for webcam)
-      capture.open(0);
+  //set height and width of capture frame
+  capture.set(500,FRAME_WIDTH);
+  capture.set(500,FRAME_HEIGHT);
 
-      //set height and width of capture frame
-      capture.set(500,FRAME_WIDTH);
-      capture.set(500,FRAME_HEIGHT);
+  //start an infinite loop where webcam feed is copied to cameraFeed matrix
+  //all of our operations will be performed within this loop
+  while(1){
 
-      //start an infinite loop where webcam feed is copied to cameraFeed matrix
-      //all of our operations will be performed within this loop
-      while(1){
+    //store image to matrix
+    capture.read(cameraFeed);
 
-        //store image to matrix
-        capture.read(cameraFeed);
+    //convert frame from BGR to HSV colorspace
+    cvtColor(cameraFeed,HSV,COLOR_BGR2HSV);
 
-        //convert frame from BGR to HSV colorspace
-        cvtColor(cameraFeed,HSV,COLOR_BGR2HSV);
+    //filter HSV image between values and store filtered image to
+    //threshold matrix
+    inRange(HSV,Scalar(H_MIN,S_MIN,V_MIN),Scalar(H_MAX,S_MAX,V_MAX),threshold);
 
-        //filter HSV image between values and store filtered image to
-        //threshold matrix
-        inRange(HSV,Scalar(H_MIN,S_MIN,V_MIN),Scalar(H_MAX,S_MAX,V_MAX),threshold);
+    //perform morphological operations on thresholded image to eliminate noise
+    //and emphasize the filtered object(s)
+    if(useMorphOps){
+      morphOps(threshold);
+    }
+    //pass in thresholded frame to our object tracking function
+    //this function will return the x and y coordinates of the
+    //filtered object
+    if(trackObjects){
+      trackFilteredObject(x,y,threshold,cameraFeed);
+    }
 
-        //perform morphological operations on thresholded image to eliminate noise
-        //and emphasize the filtered object(s)
-        if(useMorphOps)
-          morphOps(threshold);
-
-        //pass in thresholded frame to our object tracking function
-        //this function will return the x and y coordinates of the
-        //filtered object
-        if(trackObjects)
-          trackFilteredObject(x,y,threshold,cameraFeed);
-
+    if(dev == 1){
     //show frames 
-        imshow(windowName2,threshold);
-        imshow(windowName,cameraFeed);
-        imshow(windowName1,HSV);
-
+      imshow(windowName2,threshold);
+      imshow(windowName,cameraFeed);
+      imshow(windowName1,HSV);
+    }
     //delay 30ms so that screen can refresh.
     //image will not appear without this waitKey() command
-        char key = (char)waitKey(30);
+    char key = (char)waitKey(30);
 
-        switch(key){
-          case 'q':
-          return 0;
-          default:
-          break;
-        }
+    
+      switch(key){
+        case 'q':
+        return 0;
+        default:
+        break;
       }
-      return 0;
-    }
+  }
+  return 0;
+}
